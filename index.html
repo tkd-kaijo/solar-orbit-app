@@ -1,0 +1,300 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#081526">
+  <title>太陽系・惑星公転</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --paper: #f5f0e5;
+      --ink: #14233a;
+      --muted: #667287;
+      --line: #c9c1b1;
+      --navy: #0b203a;
+      --navy-2: #18395e;
+      --cream: #fffdf7;
+      --accent: #f5c451;
+    }
+    * { box-sizing: border-box; }
+    html { background: var(--paper); }
+    body {
+      margin: 0;
+      min-width: 320px;
+      min-height: 100vh;
+      color: var(--ink);
+      background:
+        linear-gradient(rgba(255,255,255,.24), rgba(255,255,255,.24)),
+        repeating-linear-gradient(0deg, transparent 0 29px, rgba(20,35,58,.025) 29px 30px),
+        var(--paper);
+      font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Yu Gothic", sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+    button, select { font: inherit; }
+    button, select, .control { -webkit-tap-highlight-color: transparent; }
+    main {
+      width: min(1500px, 100%);
+      margin: 0 auto;
+      padding: max(14px, env(safe-area-inset-top)) max(14px, env(safe-area-inset-right)) max(18px, env(safe-area-inset-bottom)) max(14px, env(safe-area-inset-left));
+    }
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 9px;
+      padding: 11px;
+      border-radius: 14px;
+      background: var(--navy);
+      box-shadow: 0 5px 18px rgba(11,32,58,.18);
+    }
+    button, .control {
+      min-height: 48px;
+      border: 1px solid rgba(255,255,255,.25);
+      border-radius: 10px;
+      color: white;
+      background: var(--navy-2);
+    }
+    button {
+      padding: 0 18px;
+      cursor: pointer;
+      font-weight: 700;
+    }
+    button.primary { color: var(--navy); background: var(--accent); border-color: var(--accent); min-width: 104px; }
+    button:focus-visible, select:focus-visible { outline: 3px solid #7fc9ff; outline-offset: 2px; }
+    .control { display: flex; align-items: center; gap: 9px; padding: 0 10px 0 13px; }
+    .control span { color: #c8d6e9; font-size: 13px; white-space: nowrap; }
+    select {
+      min-height: 44px;
+      padding: 0 28px 0 4px;
+      border: 0;
+      color: white;
+      background: transparent;
+      cursor: pointer;
+    }
+    .elapsed {
+      margin-left: auto;
+      min-width: 168px;
+      color: #dbe7f6;
+      font-variant-numeric: tabular-nums;
+      text-align: right;
+      font-size: 14px;
+    }
+    .visuals {
+      display: grid;
+      grid-template-columns: minmax(0, 1.08fr) minmax(420px, .92fr);
+      gap: 12px;
+      margin-top: 12px;
+    }
+    .panel {
+      min-width: 0;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      overflow: hidden;
+      background: var(--cream);
+      box-shadow: 0 4px 16px rgba(35,39,44,.08);
+    }
+    .orbit-panel { background: #070e1a; }
+    svg { display: block; width: 100%; height: auto; touch-action: manipulation; }
+    #orbit-svg { aspect-ratio: 1 / 1; }
+    #graph-svg { aspect-ratio: 1 / 1; }
+    .orbit { fill: none; stroke: #92a3bc; stroke-width: 1; opacity: .38; vector-effect: non-scaling-stroke; }
+    .planet-label { fill: #f3f6fb; font-size: 13px; font-weight: 700; paint-order: stroke; stroke: #070e1a; stroke-width: 4px; stroke-linejoin: round; }
+    .graph-label { fill: var(--ink); font-size: 13px; font-weight: 700; paint-order: stroke; stroke: var(--cream); stroke-width: 4px; stroke-linejoin: round; }
+    .axis-label { fill: var(--ink); font-size: 14px; font-weight: 700; }
+    .tick { fill: var(--muted); font-size: 12px; }
+    .grid-line { stroke: #ddd6c8; stroke-width: 1; vector-effect: non-scaling-stroke; }
+    .axis-line { stroke: #7e8794; stroke-width: 1.2; vector-effect: non-scaling-stroke; }
+    .reference { stroke: #496887; stroke-width: 2; stroke-dasharray: 7 6; vector-effect: non-scaling-stroke; }
+    .point-hit { cursor: pointer; }
+    .point-hit:focus .point-ring, .point-hit:hover .point-ring { opacity: 1; }
+    .point-ring { fill: none; stroke: var(--ink); stroke-width: 2; opacity: 0; }
+    .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+    @media (max-width: 900px) {
+      .visuals { grid-template-columns: 1fr; }
+      .elapsed { width: 100%; margin: 0; text-align: left; padding: 1px 4px; }
+      #orbit-svg, #graph-svg { max-height: min(78vh, 720px); }
+    }
+    @media (max-width: 520px) {
+      main { padding: 9px; }
+      .controls { gap: 7px; padding: 9px; }
+      button { flex: 1 1 calc(50% - 7px); padding: 0 10px; }
+      .control { flex: 1 1 100%; justify-content: space-between; }
+      select { flex: 1; text-align: right; }
+      .visuals { margin-top: 9px; gap: 9px; }
+      .planet-label, .graph-label { font-size: 12px; }
+    }
+    @media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; } }
+  </style>
+</head>
+<body>
+  <main>
+    <div class="controls" aria-label="表示設定">
+      <button id="play" class="primary" type="button">一時停止</button>
+      <button id="reset" type="button">初期位置</button>
+      <label class="control"><span>速さ</span>
+        <select id="speed">
+          <option value="5">5日/秒</option><option value="20">20日/秒</option>
+          <option value="60" selected>60日/秒</option><option value="180">180日/秒</option>
+          <option value="365">365日/秒</option><option value="1000">1000日/秒</option>
+        </select>
+      </label>
+      <label class="control"><span>表示範囲</span>
+        <select id="range">
+          <option value="inner">内惑星</option><option value="jupiter">木星まで</option><option value="all" selected>8惑星</option>
+        </select>
+      </label>
+      <label class="control"><span>距離表示</span>
+        <select id="scale"><option value="compressed" selected>見やすさ優先</option><option value="linear">実距離比</option></select>
+      </label>
+      <output id="elapsed" class="elapsed" aria-live="off">経過 0日（0.0年）</output>
+    </div>
+
+    <div class="visuals">
+      <section class="panel orbit-panel" aria-label="惑星の公転アニメーション">
+        <svg id="orbit-svg" viewBox="0 0 720 720" role="img" aria-labelledby="orbit-desc">
+          <desc id="orbit-desc">太陽系8惑星の公転軌道と現在位置</desc>
+          <defs>
+            <radialGradient id="sun-gradient"><stop offset="0" stop-color="#fffbd0"/><stop offset=".52" stop-color="#ffd557"/><stop offset="1" stop-color="#df8700"/></radialGradient>
+            <filter id="sun-glow" x="-120%" y="-120%" width="340%" height="340%"><feGaussianBlur stdDeviation="6" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+          </defs>
+          <rect width="720" height="720" fill="#070e1a"/>
+          <g id="stars"></g><g id="orbits"></g><g id="planets"></g>
+          <g><circle cx="360" cy="360" r="16" fill="url(#sun-gradient)" filter="url(#sun-glow)"/><text x="360" y="391" text-anchor="middle" class="planet-label">太陽</text></g>
+        </svg>
+      </section>
+      <section class="panel" aria-label="ケプラー第3法則の散布図">
+        <svg id="graph-svg" viewBox="0 0 720 720" role="img" aria-labelledby="graph-desc">
+          <desc id="graph-desc">横軸が軌道長半径の3乗、縦軸が公転周期の2乗の散布図</desc>
+          <rect width="720" height="720" fill="#fffdf7"/>
+          <g id="graph-grid"></g><g id="graph-axis"></g><g id="graph-reference"></g><g id="graph-points"></g>
+          <text x="390" y="695" text-anchor="middle" class="axis-label">軌道長半径 a³（AU³・対数目盛）</text>
+          <text x="22" y="360" text-anchor="middle" class="axis-label" transform="rotate(-90 22 360)">公転周期 T²（年²・対数目盛）</text>
+        </svg>
+      </section>
+    </div>
+    <div id="status" class="sr-only" aria-live="polite"></div>
+  </main>
+  <script>
+    (() => {
+      'use strict';
+      const NS = 'http://www.w3.org/2000/svg';
+      const YEAR_DAYS = 365.256;
+      const planets = [
+        {name:'水星', a:.3871, e:.2056, days:87.969, phase:.35, color:'#b9b8b4', r:5},
+        {name:'金星', a:.7233, e:.0068, days:224.701, phase:1.65, color:'#e9b85f', r:6},
+        {name:'地球', a:1, e:.0167, days:365.256, phase:2.75, color:'#4da6ff', r:6.3},
+        {name:'火星', a:1.5237, e:.0934, days:686.98, phase:4.1, color:'#e26f46', r:5.5},
+        {name:'木星', a:5.2029, e:.0489, days:4332.59, phase:5, color:'#d8ad83', r:10},
+        {name:'土星', a:9.5367, e:.0565, days:10759.22, phase:.95, color:'#e7ca79', r:9, ring:true},
+        {name:'天王星', a:19.189, e:.0472, days:30688.5, phase:3.4, color:'#82dce5', r:7.5},
+        {name:'海王星', a:30.0699, e:.0086, days:60182, phase:4.75, color:'#5b82ef', r:7.5}
+      ].map(p => ({...p, x3:p.a ** 3, y2:(p.days / YEAR_DAYS) ** 2}));
+      const ranges = {inner:4, jupiter:5, all:8};
+      const $ = id => document.getElementById(id);
+      const play = $('play'), reset = $('reset'), speed = $('speed'), range = $('range'), scale = $('scale');
+      const elapsed = $('elapsed'), status = $('status');
+      const orbitLayer = $('orbits'), planetLayer = $('planets');
+      const gridLayer = $('graph-grid'), axisLayer = $('graph-axis'), refLayer = $('graph-reference'), pointLayer = $('graph-points');
+      let elapsedDays = 0;
+      let running = !matchMedia('(prefers-reduced-motion: reduce)').matches;
+      let lastTime = performance.now();
+
+      function svgEl(tag, attrs = {}, text = '') {
+        const el = document.createElementNS(NS, tag);
+        Object.entries(attrs).forEach(([key, value]) => el.setAttribute(key, value));
+        if (text) el.textContent = text;
+        return el;
+      }
+      const stars = $('stars');
+      for (let i=0; i<100; i++) {
+        stars.append(svgEl('circle', {cx:10 + (i*137)%700, cy:10 + (i*83)%700, r:i%11===0?1.25:.65, fill:'#dce8ff', opacity:i%5===0?.75:.4}));
+      }
+      const orbitEls = planets.map(p => {
+        const orbit = svgEl('ellipse', {class:'orbit'}); orbitLayer.append(orbit);
+        const group = svgEl('g', {tabindex:'0', role:'img', 'aria-label':`${p.name}、軌道長半径${p.a} AU、公転周期約${(p.days/YEAR_DAYS).toFixed(2)}年`});
+        if (p.ring) group.append(svgEl('ellipse', {rx:p.r*1.75, ry:p.r*.55, fill:'none', stroke:'#f5dea0', 'stroke-width':'2'}));
+        group.append(svgEl('circle', {r:p.r, fill:p.color, stroke:'#fff', 'stroke-opacity':'.55', 'stroke-width':'.8'}));
+        group.append(svgEl('text', {x:p.r+5, y:-8, class:'planet-label'}, p.name));
+        planetLayer.append(group);
+        return {p, orbit, group};
+      });
+      const labelOffsets = [[9,-12],[9,18],[9,-12],[9,19],[11,-12],[11,20],[11,-12],[-11,20]];
+
+      function solveE(M, e) {
+        M = ((M % (Math.PI*2)) + Math.PI*2) % (Math.PI*2);
+        let E = M;
+        for (let i=0; i<8; i++) E -= (E-e*Math.sin(E)-M)/(1-e*Math.cos(E));
+        return E;
+      }
+      function orbitRadius(a, maxA, mode) {
+        const minR=43, maxR=318;
+        if (mode==='linear') return minR + (a/maxA)*(maxR-minR);
+        const amin=planets[0].a;
+        const t=(Math.log(a)-Math.log(amin))/(Math.log(maxA)-Math.log(amin));
+        return minR + Math.max(0,t)*(maxR-minR);
+      }
+      function formatLogTick(power) {
+        const value=10**power;
+        if(value>=1000) return `${value/1000}k`;
+        return value<1 ? value.toFixed(Math.abs(power)) : String(value);
+      }
+      function renderGraph(count) {
+        gridLayer.replaceChildren(); axisLayer.replaceChildren(); refLayer.replaceChildren(); pointLayer.replaceChildren();
+        const shown=planets.slice(0,count), left=82, right=686, top=34, bottom=646, width=right-left, height=bottom-top;
+        const values=shown.flatMap(p=>[p.x3,p.y2]), rawMin=Math.min(...values), rawMax=Math.max(...values);
+        const logMin=Math.log10(rawMin)-.18, logMax=Math.log10(rawMax)+.18;
+        const sx=v=>left+((Math.log10(v)-logMin)/(logMax-logMin))*width;
+        const sy=v=>bottom-((Math.log10(v)-logMin)/(logMax-logMin))*height;
+        const firstPower=Math.ceil(logMin), lastPower=Math.floor(logMax);
+        for (let power=firstPower;power<=lastPower;power++) {
+          const v=10**power, x=sx(v), y=sy(v);
+          gridLayer.append(svgEl('line',{x1:x,y1:top,x2:x,y2:bottom,class:'grid-line'}));
+          gridLayer.append(svgEl('line',{x1:left,y1:y,x2:right,y2:y,class:'grid-line'}));
+          axisLayer.append(svgEl('text',{x,y:bottom+24,'text-anchor':'middle',class:'tick'},formatLogTick(power)));
+          axisLayer.append(svgEl('text',{x:left-12,y:y+4,'text-anchor':'end',class:'tick'},formatLogTick(power)));
+        }
+        axisLayer.append(svgEl('line',{x1:left,y1:bottom,x2:right,y2:bottom,class:'axis-line'}));
+        axisLayer.append(svgEl('line',{x1:left,y1:top,x2:left,y2:bottom,class:'axis-line'}));
+        const refMin=10**logMin, refMax=10**logMax;
+        refLayer.append(svgEl('line',{x1:sx(refMin),y1:sy(refMin),x2:sx(refMax),y2:sy(refMax),class:'reference'}));
+        refLayer.append(svgEl('text',{x:sx(10**(logMin+.84*(logMax-logMin))),y:sy(10**(logMin+.84*(logMax-logMin)))-11,'text-anchor':'middle',class:'tick'},'T² = a³'));
+        shown.forEach((p,i) => {
+          const x=sx(p.x3), y=sy(p.y2), [dx,dy]=labelOffsets[i];
+          const g=svgEl('g',{class:'point-hit',tabindex:'0',role:'img','aria-label':`${p.name}、aの3乗${p.x3.toFixed(3)}、Tの2乗${p.y2.toFixed(3)}`});
+          g.append(svgEl('circle',{cx:x,cy:y,r:18,fill:'transparent'}));
+          g.append(svgEl('circle',{cx:x,cy:y,r:10,class:'point-ring'}));
+          g.append(svgEl('circle',{cx:x,cy:y,r:6.5,fill:p.color,stroke:'#14233a','stroke-width':'1.4'}));
+          const nearRight=x>right-70;
+          g.append(svgEl('text',{x:x+(nearRight?-Math.abs(dx):dx),y:y+dy,'text-anchor':nearRight?'end':'start',class:'graph-label'},p.name));
+          pointLayer.append(g);
+        });
+      }
+      function render() {
+        const count=ranges[range.value] || 8, maxA=planets[count-1].a;
+        orbitEls.forEach((item,i) => {
+          const visible=i<count;
+          item.orbit.style.display=visible?'':'none'; item.group.style.display=visible?'':'none';
+          if (!visible) return;
+          const A=orbitRadius(item.p.a,maxA,scale.value), B=A*Math.sqrt(1-item.p.e**2), shift=A*item.p.e;
+          item.orbit.setAttribute('cx',360-shift); item.orbit.setAttribute('cy',360); item.orbit.setAttribute('rx',A); item.orbit.setAttribute('ry',B);
+          const E=solveE(item.p.phase+Math.PI*2*elapsedDays/item.p.days,item.p.e);
+          item.group.setAttribute('transform',`translate(${(360+A*(Math.cos(E)-item.p.e)).toFixed(2)} ${(360-B*Math.sin(E)).toFixed(2)})`);
+        });
+        elapsed.value=`経過 ${Math.round(elapsedDays).toLocaleString()}日（${(elapsedDays/YEAR_DAYS).toFixed(1)}年）`;
+      }
+      function updateRange() { render(); renderGraph(ranges[range.value]||8); status.textContent=`表示範囲を${range.options[range.selectedIndex].text}に変更しました`; }
+      function frame(now) {
+        const dt=Math.min(.05,(now-lastTime)/1000); lastTime=now;
+        if(running) elapsedDays+=dt*Number(speed.value);
+        render(); requestAnimationFrame(frame);
+      }
+      play.addEventListener('click',()=>{running=!running; play.textContent=running?'一時停止':'再生'; play.setAttribute('aria-pressed',String(!running));});
+      reset.addEventListener('click',()=>{elapsedDays=0; render(); status.textContent='初期位置に戻しました';});
+      range.addEventListener('change',updateRange); scale.addEventListener('change',render);
+      if(!running){play.textContent='再生'; play.setAttribute('aria-pressed','true');}
+      renderGraph(8); render(); requestAnimationFrame(frame);
+    })();
+  </script>
+</body>
+</html>
