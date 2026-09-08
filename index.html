@@ -103,8 +103,9 @@
     .orbit { fill: none; stroke: #92a3bc; stroke-width: 1; opacity: .38; vector-effect: non-scaling-stroke; }
     .planet-label { fill: #f3f6fb; font-size: 13px; font-weight: 700; paint-order: stroke; stroke: #070e1a; stroke-width: 4px; stroke-linejoin: round; }
     .graph-label { fill: var(--ink); font-size: 13px; font-weight: 700; paint-order: stroke; stroke: var(--cream); stroke-width: 4px; stroke-linejoin: round; }
-    .axis-label-main { fill: var(--ink); font-size: 42px; font-weight: 800; }
+    .axis-label-main { fill: var(--ink); font-size: 42px; font-weight: 800; font-style: italic; font-family: Georgia, "Times New Roman", serif; }
     .axis-label-sub { fill: var(--muted); font-size: 14px; font-weight: 700; }
+    .math-label { font-style: italic; font-family: Georgia, "Times New Roman", serif; }
     .tick { fill: var(--muted); font-size: 12px; }
     .grid-line { stroke: #ddd6c8; stroke-width: 1; vector-effect: non-scaling-stroke; }
     .axis-line { stroke: #7e8794; stroke-width: 1.2; vector-effect: non-scaling-stroke; }
@@ -179,7 +180,7 @@
           <g id="graph-grid"></g><g id="graph-axis"></g><g id="graph-reference"></g><g id="graph-points"></g>
           <text id="x-axis-main" x="390" y="686" text-anchor="middle" class="axis-label-main">a³</text>
           <text id="x-axis-sub" x="390" y="710" text-anchor="middle" class="axis-label-sub">軌道長半径（AU³・対数目盛）</text>
-          <text id="y-axis-main" x="26" y="360" text-anchor="middle" class="axis-label-main" transform="rotate(-90 26 360)">T²</text>
+          <text id="y-axis-main" x="34" y="360" text-anchor="middle" class="axis-label-main" transform="rotate(-90 34 360)">T²</text>
           <text id="y-axis-sub" x="58" y="360" text-anchor="middle" class="axis-label-sub" transform="rotate(-90 58 360)">公転周期（年²・対数目盛）</text>
         </svg>
       </section>
@@ -312,7 +313,7 @@
         axisLayer.append(svgEl('line',{x1:left,y1:top,x2:left,y2:bottom,class:'axis-line'}));
         const refMin=10**logMin, refMax=10**logMax;
         refLayer.append(svgEl('line',{x1:sx(refMin),y1:sy(refMin),x2:sx(refMax),y2:sy(refMax),class:'reference'}));
-        refLayer.append(svgEl('text',{x:sx(10**(logMin+.84*(logMax-logMin))),y:sy(10**(logMin+.84*(logMax-logMin)))-11,'text-anchor':'middle',class:'tick'},'T² = a³'));
+        refLayer.append(svgEl('text',{x:sx(10**(logMin+.84*(logMax-logMin))),y:sy(10**(logMin+.84*(logMax-logMin)))-11,'text-anchor':'middle',class:'tick math-label'},'T² = a³'));
         shown.forEach((p,i) => appendGraphPoint(p,i,sx(p.x3),sy(p.y2),right,`${p.name}、aの3乗${p.x3.toFixed(3)}、Tの2乗${p.y2.toFixed(3)}`));
       }
       function renderRawGraph(shown) {
@@ -342,7 +343,7 @@
         }
         refLayer.append(svgEl('path',{d:points.join(' '),class:'reference raw-reference'}));
         const labelA=curveMaxA*.72, labelT=labelA**1.5;
-        refLayer.append(svgEl('text',{x:sx(labelA),y:sy(labelT)-12,'text-anchor':'middle',class:'tick'},'T = a³ᐟ²'));
+        refLayer.append(svgEl('text',{x:sx(labelA),y:sy(labelT)-12,'text-anchor':'middle',class:'tick math-label'},'T = a³ᐟ²'));
         shown.forEach((p,i) => appendGraphPoint(p,i,sx(p.a),sy(p.periodYears),right,`${p.name}、軌道長半径${p.a.toFixed(3)} AU、公転周期${p.periodYears.toFixed(2)}年`));
       }
       function renderGraph(count) {
