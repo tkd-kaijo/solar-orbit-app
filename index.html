@@ -86,6 +86,7 @@
       gap: 12px;
       margin-top: 12px;
     }
+    .visuals.graph-hidden { grid-template-columns: minmax(0, 1fr); }
     .panel {
       min-width: 0;
       border: 1px solid var(--line);
@@ -95,17 +96,20 @@
       box-shadow: 0 4px 16px rgba(35,39,44,.08);
     }
     .orbit-panel { background: #070e1a; }
+    .graph-panel[hidden], .graph-mode-control[hidden] { display: none; }
     svg { display: block; width: 100%; height: auto; touch-action: manipulation; }
     #orbit-svg { aspect-ratio: 1 / 1; }
     #graph-svg { aspect-ratio: 1 / 1; }
     .orbit { fill: none; stroke: #92a3bc; stroke-width: 1; opacity: .38; vector-effect: non-scaling-stroke; }
     .planet-label { fill: #f3f6fb; font-size: 13px; font-weight: 700; paint-order: stroke; stroke: #070e1a; stroke-width: 4px; stroke-linejoin: round; }
     .graph-label { fill: var(--ink); font-size: 13px; font-weight: 700; paint-order: stroke; stroke: var(--cream); stroke-width: 4px; stroke-linejoin: round; }
-    .axis-label { fill: var(--ink); font-size: 14px; font-weight: 700; }
+    .axis-label-main { fill: var(--ink); font-size: 42px; font-weight: 800; }
+    .axis-label-sub { fill: var(--muted); font-size: 14px; font-weight: 700; }
     .tick { fill: var(--muted); font-size: 12px; }
     .grid-line { stroke: #ddd6c8; stroke-width: 1; vector-effect: non-scaling-stroke; }
     .axis-line { stroke: #7e8794; stroke-width: 1.2; vector-effect: non-scaling-stroke; }
-    .reference { stroke: #496887; stroke-width: 2; stroke-dasharray: 7 6; vector-effect: non-scaling-stroke; }
+    .reference { fill: none; stroke: #496887; stroke-width: 2; stroke-dasharray: 7 6; vector-effect: non-scaling-stroke; }
+    .reference.raw-reference { stroke-dasharray: none; }
     .point-hit { cursor: pointer; }
     .point-hit:focus .point-ring, .point-hit:hover .point-ring { opacity: 1; }
     .point-ring { fill: none; stroke: var(--ink); stroke-width: 2; opacity: 0; }
@@ -123,6 +127,7 @@
       select { flex: 1; text-align: right; }
       .visuals { margin-top: 9px; gap: 9px; }
       .planet-label, .graph-label { font-size: 12px; }
+      .axis-label-main { font-size: 38px; }
     }
     @media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; } }
   </style>
@@ -147,10 +152,14 @@
       <label class="control"><span>距離表示</span>
         <select id="scale"><option value="compressed" selected>見やすさ優先</option><option value="linear">実距離比</option></select>
       </label>
+      <button id="graph-toggle" type="button" aria-pressed="false">グラフ表示</button>
+      <label id="graph-mode-control" class="control graph-mode-control" hidden><span>グラフ</span>
+        <select id="graph-mode"><option value="kepler" selected>T²-a³</option><option value="raw">T-a</option></select>
+      </label>
       <output id="elapsed" class="elapsed" aria-live="off">経過 0日（0.0年）</output>
     </div>
 
-    <div class="visuals">
+    <div id="visuals" class="visuals graph-hidden">
       <section class="panel orbit-panel" aria-label="惑星の公転アニメーション">
         <svg id="orbit-svg" viewBox="0 0 720 720" role="img" aria-labelledby="orbit-desc">
           <desc id="orbit-desc">太陽系8惑星の公転軌道と現在位置</desc>
@@ -163,13 +172,15 @@
           <g><circle cx="360" cy="360" r="16" fill="url(#sun-gradient)" filter="url(#sun-glow)"/><text x="360" y="391" text-anchor="middle" class="planet-label">太陽</text></g>
         </svg>
       </section>
-      <section class="panel" aria-label="ケプラー第3法則の散布図">
+      <section id="graph-panel" class="panel graph-panel" aria-label="ケプラー第3法則の散布図" hidden>
         <svg id="graph-svg" viewBox="0 0 720 720" role="img" aria-labelledby="graph-desc">
           <desc id="graph-desc">横軸が軌道長半径の3乗、縦軸が公転周期の2乗の散布図</desc>
           <rect width="720" height="720" fill="#fffdf7"/>
           <g id="graph-grid"></g><g id="graph-axis"></g><g id="graph-reference"></g><g id="graph-points"></g>
-          <text x="390" y="695" text-anchor="middle" class="axis-label">軌道長半径 a³（AU³・対数目盛）</text>
-          <text x="22" y="360" text-anchor="middle" class="axis-label" transform="rotate(-90 22 360)">公転周期 T²（年²・対数目盛）</text>
+          <text id="x-axis-main" x="390" y="686" text-anchor="middle" class="axis-label-main">a³</text>
+          <text id="x-axis-sub" x="390" y="710" text-anchor="middle" class="axis-label-sub">軌道長半径（AU³・対数目盛）</text>
+          <text id="y-axis-main" x="26" y="360" text-anchor="middle" class="axis-label-main" transform="rotate(-90 26 360)">T²</text>
+          <text id="y-axis-sub" x="58" y="360" text-anchor="middle" class="axis-label-sub" transform="rotate(-90 58 360)">公転周期（年²・対数目盛）</text>
         </svg>
       </section>
     </div>
@@ -189,15 +200,18 @@
         {name:'土星', a:9.5367, e:.0565, days:10759.22, phase:.95, color:'#e7ca79', r:9, ring:true},
         {name:'天王星', a:19.189, e:.0472, days:30688.5, phase:3.4, color:'#82dce5', r:7.5},
         {name:'海王星', a:30.0699, e:.0086, days:60182, phase:4.75, color:'#5b82ef', r:7.5}
-      ].map(p => ({...p, x3:p.a ** 3, y2:(p.days / YEAR_DAYS) ** 2}));
+      ].map(p => ({...p, periodYears:p.days / YEAR_DAYS, x3:p.a ** 3, y2:(p.days / YEAR_DAYS) ** 2}));
       const ranges = {inner:4, jupiter:5, all:8};
       const $ = id => document.getElementById(id);
       const play = $('play'), reset = $('reset'), speed = $('speed'), range = $('range'), scale = $('scale');
-      const elapsed = $('elapsed'), status = $('status');
+      const graphToggle = $('graph-toggle'), graphMode = $('graph-mode'), graphModeControl = $('graph-mode-control');
+      const elapsed = $('elapsed'), status = $('status'), visuals = $('visuals'), graphPanel = $('graph-panel'), graphDesc = $('graph-desc');
+      const xAxisMain = $('x-axis-main'), xAxisSub = $('x-axis-sub'), yAxisMain = $('y-axis-main'), yAxisSub = $('y-axis-sub');
       const orbitLayer = $('orbits'), planetLayer = $('planets');
       const gridLayer = $('graph-grid'), axisLayer = $('graph-axis'), refLayer = $('graph-reference'), pointLayer = $('graph-points');
       let elapsedDays = 0;
       let running = !matchMedia('(prefers-reduced-motion: reduce)').matches;
+      let graphVisible = false;
       let lastTime = performance.now();
 
       function svgEl(tag, attrs = {}, text = '') {
@@ -212,7 +226,7 @@
       }
       const orbitEls = planets.map(p => {
         const orbit = svgEl('ellipse', {class:'orbit'}); orbitLayer.append(orbit);
-        const group = svgEl('g', {tabindex:'0', role:'img', 'aria-label':`${p.name}、軌道長半径${p.a} AU、公転周期約${(p.days/YEAR_DAYS).toFixed(2)}年`});
+        const group = svgEl('g', {tabindex:'0', role:'img', 'aria-label':`${p.name}、軌道長半径${p.a} AU、公転周期約${p.periodYears.toFixed(2)}年`});
         if (p.ring) group.append(svgEl('ellipse', {rx:p.r*1.75, ry:p.r*.55, fill:'none', stroke:'#f5dea0', 'stroke-width':'2'}));
         group.append(svgEl('circle', {r:p.r, fill:p.color, stroke:'#fff', 'stroke-opacity':'.55', 'stroke-width':'.8'}));
         group.append(svgEl('text', {x:p.r+5, y:-8, class:'planet-label'}, p.name));
@@ -239,9 +253,49 @@
         if(value>=1000) return `${value/1000}k`;
         return value<1 ? value.toFixed(Math.abs(power)) : String(value);
       }
-      function renderGraph(count) {
-        gridLayer.replaceChildren(); axisLayer.replaceChildren(); refLayer.replaceChildren(); pointLayer.replaceChildren();
-        const shown=planets.slice(0,count), left=82, right=686, top=34, bottom=646, width=right-left, height=bottom-top;
+      function niceStep(maxValue, targetTicks=6) {
+        const raw=maxValue/targetTicks;
+        const magnitude=10**Math.floor(Math.log10(raw || 1));
+        const normalized=raw/magnitude;
+        const nice=normalized<=1?1:normalized<=2?2:normalized<=5?5:10;
+        return nice*magnitude;
+      }
+      function formatLinearTick(value) {
+        if(value===0) return '0';
+        if(Math.abs(value)>=100) return Math.round(value).toLocaleString();
+        if(Math.abs(value)>=10) return String(Number(value.toFixed(0)));
+        if(Math.abs(value)>=1) return String(Number(value.toFixed(1)));
+        return String(Number(value.toFixed(2)));
+      }
+      function setGraphAxisLabels(mode) {
+        if(mode==='raw') {
+          xAxisMain.textContent='a';
+          xAxisSub.textContent='軌道長半径（AU）';
+          yAxisMain.textContent='T';
+          yAxisSub.textContent='公転周期（年）';
+          graphDesc.textContent='横軸が軌道長半径a、縦軸が公転周期Tの散布図';
+          graphPanel.setAttribute('aria-label','公転周期Tと軌道長半径aの散布図');
+        } else {
+          xAxisMain.textContent='a³';
+          xAxisSub.textContent='軌道長半径（AU³・対数目盛）';
+          yAxisMain.textContent='T²';
+          yAxisSub.textContent='公転周期（年²・対数目盛）';
+          graphDesc.textContent='横軸が軌道長半径の3乗、縦軸が公転周期の2乗の散布図';
+          graphPanel.setAttribute('aria-label','ケプラー第3法則の散布図');
+        }
+      }
+      function appendGraphPoint(p, i, x, y, right, ariaLabel) {
+        const [dx,dy]=labelOffsets[i];
+        const g=svgEl('g',{class:'point-hit',tabindex:'0',role:'img','aria-label':ariaLabel});
+        g.append(svgEl('circle',{cx:x,cy:y,r:18,fill:'transparent'}));
+        g.append(svgEl('circle',{cx:x,cy:y,r:10,class:'point-ring'}));
+        g.append(svgEl('circle',{cx:x,cy:y,r:6.5,fill:p.color,stroke:'#14233a','stroke-width':'1.4'}));
+        const nearRight=x>right-70;
+        g.append(svgEl('text',{x:x+(nearRight?-Math.abs(dx):dx),y:y+dy,'text-anchor':nearRight?'end':'start',class:'graph-label'},p.name));
+        pointLayer.append(g);
+      }
+      function renderKeplerGraph(shown) {
+        const left=82, right=686, top=34, bottom=646, width=right-left, height=bottom-top;
         const values=shown.flatMap(p=>[p.x3,p.y2]), rawMin=Math.min(...values), rawMax=Math.max(...values);
         const logMin=Math.log10(rawMin)-.18, logMax=Math.log10(rawMax)+.18;
         const sx=v=>left+((Math.log10(v)-logMin)/(logMax-logMin))*width;
@@ -259,16 +313,43 @@
         const refMin=10**logMin, refMax=10**logMax;
         refLayer.append(svgEl('line',{x1:sx(refMin),y1:sy(refMin),x2:sx(refMax),y2:sy(refMax),class:'reference'}));
         refLayer.append(svgEl('text',{x:sx(10**(logMin+.84*(logMax-logMin))),y:sy(10**(logMin+.84*(logMax-logMin)))-11,'text-anchor':'middle',class:'tick'},'T² = a³'));
-        shown.forEach((p,i) => {
-          const x=sx(p.x3), y=sy(p.y2), [dx,dy]=labelOffsets[i];
-          const g=svgEl('g',{class:'point-hit',tabindex:'0',role:'img','aria-label':`${p.name}、aの3乗${p.x3.toFixed(3)}、Tの2乗${p.y2.toFixed(3)}`});
-          g.append(svgEl('circle',{cx:x,cy:y,r:18,fill:'transparent'}));
-          g.append(svgEl('circle',{cx:x,cy:y,r:10,class:'point-ring'}));
-          g.append(svgEl('circle',{cx:x,cy:y,r:6.5,fill:p.color,stroke:'#14233a','stroke-width':'1.4'}));
-          const nearRight=x>right-70;
-          g.append(svgEl('text',{x:x+(nearRight?-Math.abs(dx):dx),y:y+dy,'text-anchor':nearRight?'end':'start',class:'graph-label'},p.name));
-          pointLayer.append(g);
-        });
+        shown.forEach((p,i) => appendGraphPoint(p,i,sx(p.x3),sy(p.y2),right,`${p.name}、aの3乗${p.x3.toFixed(3)}、Tの2乗${p.y2.toFixed(3)}`));
+      }
+      function renderRawGraph(shown) {
+        const left=82, right=686, top=34, bottom=646, width=right-left, height=bottom-top;
+        const maxA=Math.max(...shown.map(p=>p.a)), maxT=Math.max(...shown.map(p=>p.periodYears));
+        const stepX=niceStep(maxA), stepY=niceStep(maxT);
+        const xMax=Math.ceil(maxA/stepX)*stepX, yMax=Math.ceil(maxT/stepY)*stepY;
+        const sx=v=>left+(v/xMax)*width;
+        const sy=v=>bottom-(v/yMax)*height;
+        for(let v=0;v<=xMax+stepX*.001;v+=stepX) {
+          const x=sx(v);
+          gridLayer.append(svgEl('line',{x1:x,y1:top,x2:x,y2:bottom,class:'grid-line'}));
+          axisLayer.append(svgEl('text',{x,y:bottom+24,'text-anchor':'middle',class:'tick'},formatLinearTick(v)));
+        }
+        for(let v=0;v<=yMax+stepY*.001;v+=stepY) {
+          const y=sy(v);
+          gridLayer.append(svgEl('line',{x1:left,y1:y,x2:right,y2:y,class:'grid-line'}));
+          axisLayer.append(svgEl('text',{x:left-12,y:y+4,'text-anchor':'end',class:'tick'},formatLinearTick(v)));
+        }
+        axisLayer.append(svgEl('line',{x1:left,y1:bottom,x2:right,y2:bottom,class:'axis-line'}));
+        axisLayer.append(svgEl('line',{x1:left,y1:top,x2:left,y2:bottom,class:'axis-line'}));
+        const curveMaxA=Math.min(xMax,yMax**(2/3));
+        const samples=120, points=[];
+        for(let i=0;i<=samples;i++) {
+          const a=curveMaxA*i/samples;
+          points.push(`${i?'L':'M'} ${sx(a).toFixed(2)} ${sy(a**1.5).toFixed(2)}`);
+        }
+        refLayer.append(svgEl('path',{d:points.join(' '),class:'reference raw-reference'}));
+        const labelA=curveMaxA*.72, labelT=labelA**1.5;
+        refLayer.append(svgEl('text',{x:sx(labelA),y:sy(labelT)-12,'text-anchor':'middle',class:'tick'},'T = a³ᐟ²'));
+        shown.forEach((p,i) => appendGraphPoint(p,i,sx(p.a),sy(p.periodYears),right,`${p.name}、軌道長半径${p.a.toFixed(3)} AU、公転周期${p.periodYears.toFixed(2)}年`));
+      }
+      function renderGraph(count) {
+        gridLayer.replaceChildren(); axisLayer.replaceChildren(); refLayer.replaceChildren(); pointLayer.replaceChildren();
+        const shown=planets.slice(0,count), mode=graphMode.value;
+        setGraphAxisLabels(mode);
+        if(mode==='raw') renderRawGraph(shown); else renderKeplerGraph(shown);
       }
       function render() {
         const count=ranges[range.value] || 8, maxA=planets[count-1].a;
@@ -283,7 +364,21 @@
         });
         elapsed.value=`経過 ${Math.round(elapsedDays).toLocaleString()}日（${(elapsedDays/YEAR_DAYS).toFixed(1)}年）`;
       }
-      function updateRange() { render(); renderGraph(ranges[range.value]||8); status.textContent=`表示範囲を${range.options[range.selectedIndex].text}に変更しました`; }
+      function setGraphVisibility(visible) {
+        graphVisible=visible;
+        graphPanel.hidden=!visible;
+        graphModeControl.hidden=!visible;
+        visuals.classList.toggle('graph-hidden',!visible);
+        graphToggle.textContent=visible?'グラフ非表示':'グラフ表示';
+        graphToggle.setAttribute('aria-pressed',String(visible));
+        if(visible) renderGraph(ranges[range.value]||8);
+        status.textContent=visible?'グラフを表示しました':'グラフを非表示にしました';
+      }
+      function updateRange() {
+        render();
+        if(graphVisible) renderGraph(ranges[range.value]||8);
+        status.textContent=`表示範囲を${range.options[range.selectedIndex].text}に変更しました`;
+      }
       function frame(now) {
         const dt=Math.min(.05,(now-lastTime)/1000); lastTime=now;
         if(running) elapsedDays+=dt*Number(speed.value);
@@ -291,9 +386,11 @@
       }
       play.addEventListener('click',()=>{running=!running; play.textContent=running?'一時停止':'再生'; play.setAttribute('aria-pressed',String(!running));});
       reset.addEventListener('click',()=>{elapsedDays=0; render(); status.textContent='初期位置に戻しました';});
+      graphToggle.addEventListener('click',()=>setGraphVisibility(!graphVisible));
+      graphMode.addEventListener('change',()=>{if(graphVisible) renderGraph(ranges[range.value]||8); status.textContent=`${graphMode.options[graphMode.selectedIndex].text}グラフに変更しました`;});
       range.addEventListener('change',updateRange); scale.addEventListener('change',render);
       if(!running){play.textContent='再生'; play.setAttribute('aria-pressed','true');}
-      renderGraph(8); render(); requestAnimationFrame(frame);
+      render(); requestAnimationFrame(frame);
     })();
   </script>
 </body>
